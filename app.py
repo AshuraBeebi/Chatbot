@@ -1,6 +1,5 @@
 from flask import Flask, render_template, request, jsonify
 import google.generativeai as genai
-import mysql.connector
 import re
 import urllib.parse
 import requests
@@ -10,14 +9,6 @@ app = Flask(__name__)
 # 🔑 Configure your Gemini API Key
 genai.configure(api_key="AIzaSyCUrUWOBpcO9JeP_YZLdp2ydWlHfIgSyoM")
 model = genai.GenerativeModel("gemini-2.5-flash-lite")
-
-# Connect to MySQL database
-conn = mysql.connector.connect(
-    host="localhost",
-    user="root",
-    password="",
-    database="chatbot"
-)
 
 def convert_markdown_links_to_html(text):
     """Convert Markdown-style links to clickable HTML links"""
@@ -40,19 +31,9 @@ def home():
 def get_response():
     user_message = request.json.get("message", "").strip()
 
-    # Save user message to DB
-    try:
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO enquiries (user_message) VALUES (%s)", (user_message,))
-        conn.commit()
-        cursor.close()
-    except Exception as db_error:
-        print("Database error:", db_error)
-
     # 🔹 Refined prompt — natural but still constrained
     prompt = f"""
 You are a smart Indian shopping assistant.
-
 
 Your task:
 - Answer all product-related queries, including questions about features, specifications, comparisons, reviews, recommendations, colors, and price.
@@ -69,7 +50,6 @@ Your task:
 
 User Query: {user_message}
 """
-
 
     try:
         # Generate product info using Gemini
@@ -109,17 +89,6 @@ User Query: {user_message}
 
     except Exception as e:
         return jsonify({"reply": f"⚠️ Error: {str(e)}"})
-
-
-
-
-@app.route('/get_total_enquiries')
-def get_total_enquiries():
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM enquiries")
-    total = cursor.fetchone()[0]
-    cursor.close()
-    return jsonify({"total": total})
 
 if __name__ == "__main__":
     app.run(debug=True)
